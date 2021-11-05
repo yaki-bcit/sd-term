@@ -1,0 +1,22 @@
+in main.js
+  make sure functions from IOhandler are piped appropriately
+
+in ioHandler.js:
+  write function called "unzip" which takes a finlename as an argument and uses pipe:
+    * write code as promise
+    * console.log message "Extraction operation complete" when the promise issues 'accept'
+
+  write a function called "readDir" which takes a subdirectory as an argument:
+    * read file names into an array, making sure to ignore anything but PNG's
+    * return the array
+
+  write a function called "grayScaleAlg" which takes pixel data to implement the grayscale algorithm:
+    * write it with a promise
+    * carry out the algorithm pixel by pixel
+    * stream OR return transformed data
+
+  write a function called "grayScale" which takes pathIn and PathOut as arguments and uses pipe:
+    * create a stream from PNGJS to stream file contents (OR return an array of pixels)
+    * stream OR pass the pixel data to grayScaleAlg
+    * write out the transformed pixels to pathOut directory
+  
