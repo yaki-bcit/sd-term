@@ -8,54 +8,113 @@
  * 
  */
 
+const { resolve } = require('path');
 const unzipper = require('unzipper'),
   fs = require('fs'),
   PNG = require('pngjs').PNG,
   path = require('path');
 
-
 /**
- * Description: decompress file from given pathIn, write to given pathOut 
+ * Description: Decompress file from given pathIn, write to given pathOut 
  *  
  * @param {string} pathIn 
  * @param {string} pathOut 
  * @return {promise}
  */
 const unzip = (pathIn, pathOut) => {
-  fs.createReadStream(pathIn)
-    .pipe(unzipper.Extract({path: pathOut}))
-    .on('finish', () => console.log('Extraction operation complete'));
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(pathIn)
+      .pipe(unzipper.Extract({path: pathOut}))
+      .on('finish', () => {
+        console.log('Extraction operation complete');
+        resolve();
+      })
+      .on('error', err => reject(err))
+  });
 };
 
-/* unzip(`${__dirname}/myfile.zip`, `${__dirname}/unzipped`); */
-
 /**
- * Description: read all the png files from given directory  
+ * Description: Read all the png files from given path  
  * and return Promise containing array of each png file path
  * @param {string} path 
  * @return {promise}
  */
 const readDir = dir => {
-  fs.readdir(dir, (err, files) => {
-    if (err) { 
-      console.log(err) 
-    } else {
-      console.log(files);
-    }
-  });
-
+  return new Promise((resolve, reject) => {
+    fs.readdir(dir, (err, files) => {
+      if (err) { 
+        reject(err) 
+      } else {
+        resolve(files);
+      }
+    });
+  })
 };
 
-/* readDir(`${__dirname}/unzipped`); */
+/**
+ * Description: Create a given directory
+ * @param {string} dir 
+ * @return {promise}
+ */
+const mkDir = dir => {
+  return new Promise((resolve, reject) => {
+    fs.mkdir(dir, (err) => {
+      if (err) {
+        if (err.code === 'EEXIST') {
+          resolve();
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve()
+      }
+    });
+  });
+};
 
-const grayScaleAlg = () => {
-  const grayScaleValue = (this.data[idx] + this.data[idx + 1] + this.data[idx + 2]) / 3;
-  // invert color
-  this.data[idx] = grayScaleValue;
-  this.data[idx + 1] = grayScaleValue;
-  this.data[idx + 2] = grayScaleValue;
+/**
+ * Description: Helper function to implement grayscale 
+ * for png files. Read files by given pathIn, convert 
+ * to grayscale by given pathOut
+ * 
+ * @param {array} files 
+ * @param {string} pathIn
+ * @param {string} pathOut 
+ * @return {promise}
+ */
+const grayScaleAlg = (files, pathIn, pathOut) => {
+  return new Promise(function(resolve, reject) {
+    for (const file of files) {
+      if (file.endsWith('.png')) {
+        const filePath = pathIn + file;
+        fs.createReadStream(filePath)
+          .pipe(
+            new PNG({
+              filterType: -1,
+            })
+          )
+          .on('parsed', function() {
+            for (let y = 0; y < this.height; y++) {
+              for (let x = 0; x < this.width; x++) {
+                const idx = (this.width * y + x) << 2;
+                const grayScaleValue = (this.data[idx] + this.data[idx + 1] + this.data[idx + 2]) / 3;
+                this.data[idx] = grayScaleValue;
+                this.data[idx + 1] = grayScaleValue;
+                this.data[idx + 2] = grayScaleValue;
+              }
+            }
 
-  this.pack().pipe(fs.createWriteStream("out.png"));
+            this.pack()
+              .pipe(fs.createWriteStream(pathOut + file)).on('error', err => reject(err))
+              .on('error', err => reject(err));
+            resolve();
+          })
+          .on('error', err => reject(err));
+      } else {
+        continue;
+      }
+    }
+  })
 };
 
 /**
@@ -63,48 +122,21 @@ const grayScaleAlg = () => {
  * convert to grayscale and write to given pathOut
  * 
  * @param {array} files 
+ * @param {string} pathIn
  * @param {string} pathOut 
  * @return {promise}
  */
-const grayScale = (files, pathOut) => {
-  for (file of files) {
-    if (file.endsWith('.png')) {
-      fs.createReadStream(file)
-        .pipe(
-          new PNG({
-            filterType: -1,
-          })
-          .on('parsed', function() {
-            /* for (var y = 0; y < this.height; y++) {
-              for (var x = 0; x < this.width; x++) {
-                console.log(this.data)
-                var idx = (this.width * y + x) << 2;
-         
-                // invert color
-                this.data[idx] = 255 - this.data[idx];
-                this.data[idx + 1] = 255 - this.data[idx + 1];
-                this.data[idx + 2] = 255 - this.data[idx + 2];
-         
-                // and reduce opacity
-                this.data[idx + 3] = this.data[idx + 3] >> 1;
-              }
-            } */
-            console.log(this.data);
-            this.pack().pipe(fs.createWriteStream("out.png"));
-
-          })
-        )
-    }
-  }
-  
+function grayScale (files, pathIn, pathOut) {
+  return new Promise((resolve, reject) => {
+    mkDir(pathOut)
+      .then(() => grayScaleAlg(files, pathIn, pathOut))
+      .then(() => resolve())
+      .catch(err => reject(err));
+  });
 };
-
-grayScale(['./unzipped/1.png',], 'a');
 
 module.exports = {
   unzip,
   readDir,
   grayScale
 };
-
-
